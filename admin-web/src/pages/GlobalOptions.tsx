@@ -196,7 +196,7 @@ const GlobalOptions = () => {
                     className="form-control"
                     value={formData.type}
                     onChange={e =>
-                      setFormData({...formData, type: e.target.value as any})
+                      setFormData({...formData, type: e.target.value as 'pick_one' | 'multi_select' | 'boolean'})
                     }>
                     <option value="pick_one">Pick One (Radio)</option>
                     <option value="multi_select">
