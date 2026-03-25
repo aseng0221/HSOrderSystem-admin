@@ -90,6 +90,10 @@ function App() {
               <span>Settings</span>
             </NavLink>
           </nav>
+
+          <div style={{ marginTop: 'auto', paddingTop: '2rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>
+            Version {import.meta.env.VITE_APP_VERSION}
+          </div>
         </aside>
 
         <main className="main-content">

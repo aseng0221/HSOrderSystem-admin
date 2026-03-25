@@ -18,8 +18,8 @@ interface UserData {
   id: string;
   phoneNumber?: string;
   email?: string;
-  createdAt?: any;
-  lastLogin?: any;
+  createdAt?: { toDate?: () => Date } | Date | number | string;
+  lastLogin?: { toDate?: () => Date } | Date | number | string;
 }
 
 const Users = () => {
@@ -47,11 +47,11 @@ const Users = () => {
     setIsAddressModalOpen(true);
   };
 
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: { toDate?: () => Date } | Date | number | string | null | undefined) => {
     if (!timestamp) {
       return 'N/A';
     }
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date = (typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') ? timestamp.toDate() : new Date(timestamp as Date | number | string);
     return date.toLocaleString();
   };
 

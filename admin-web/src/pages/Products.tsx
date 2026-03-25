@@ -60,7 +60,7 @@ const Products = () => {
     query(categoriesRef, orderBy('order', 'asc')),
   );
   const categories = catSnapshot?.docs.map(
-    d => ({id: d.id, ...d.data()} as any),
+    d => ({id: d.id, ...d.data()} as {id: string, name: string}),
   );
 
   // Fetch global options for the multi-select
@@ -68,7 +68,7 @@ const Products = () => {
     query(globalOptionsRef, orderBy('name', 'asc')),
   );
   const allGlobalOptions = globalSnapshot?.docs.map(
-    d => ({id: d.id, ...d.data()} as any),
+    d => ({id: d.id, ...d.data()} as {id: string, name: string}),
   );
 
   // Fetch products based on filter
