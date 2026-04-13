@@ -6,12 +6,14 @@ import {
   Settings,
   MapPin,
   Users as UsersIcon,
+  ShoppingCart,
 } from 'lucide-react';
 import Categories from './pages/Categories';
 import GlobalOptions from './pages/GlobalOptions';
 import Products from './pages/Products';
 import Branches from './pages/Branches';
 import Users from './pages/Users';
+import Orders from './pages/Orders';
 
 const DashboardHome = () => (
   <div className="card">
@@ -58,6 +60,14 @@ function App() {
               <span>Products</span>
             </NavLink>
             <NavLink
+              to="/orders"
+              className={({isActive}) =>
+                `nav-link ${isActive ? 'active' : ''}`
+              }>
+              <ShoppingCart size={20} />
+              <span>Orders</span>
+            </NavLink>
+            <NavLink
               to="/branches"
               className={({isActive}) =>
                 `nav-link ${isActive ? 'active' : ''}`
@@ -102,6 +112,7 @@ function App() {
             <Route path="/categories" element={<Categories />} />
             <Route path="/global-options" element={<GlobalOptions />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/orders" element={<Orders />} />
             <Route path="/branches" element={<Branches />} />
             <Route path="/users" element={<Users />} />
 
