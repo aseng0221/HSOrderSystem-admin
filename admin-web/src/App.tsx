@@ -12,6 +12,7 @@ import GlobalOptions from './pages/GlobalOptions';
 import Products from './pages/Products';
 import Branches from './pages/Branches';
 import Users from './pages/Users';
+import Orders from './pages/Orders';
 
 const DashboardHome = () => (
   <div className="card">
@@ -48,6 +49,14 @@ function App() {
               }>
               <LayoutGrid size={20} />
               <span>Categories</span>
+            </NavLink>
+            <NavLink
+              to="/orders"
+              className={({isActive}) =>
+                `nav-link ${isActive ? 'active' : ''}`
+              }>
+              <LayoutGrid size={20} />
+              <span>Orders</span>
             </NavLink>
             <NavLink
               to="/products"
@@ -100,6 +109,7 @@ function App() {
             <Route path="/products" element={<Products />} />
             <Route path="/branches" element={<Branches />} />
             <Route path="/users" element={<Users />} />
+            <Route path="/orders" element={<Orders />} />
 
             <Route
               path="/settings"
