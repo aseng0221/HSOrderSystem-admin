@@ -1,8 +1,8 @@
 import {useState} from 'react';
 import {db} from '../firebase';
-import {collection} from 'firebase/firestore';
+import {collection, deleteDoc, doc} from 'firebase/firestore';
 import {useCollection} from 'react-firebase-hooks/firestore';
-import {Users as UsersIcon, MapPin, X, User as UserIcon} from 'lucide-react';
+import {Users as UsersIcon, MapPin, X, User as UserIcon, Trash2} from 'lucide-react';
 
 interface UserAddress {
   id: string;
@@ -53,6 +53,17 @@ const Users = () => {
     }
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleString();
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await deleteDoc(doc(db, 'users', id));
+      } catch (err) {
+        console.error('Error deleting user:', err);
+        alert('Failed to delete user.');
+      }
+    }
   };
 
   return (
@@ -129,19 +140,34 @@ const Users = () => {
                     {formatDate(user.lastLogin)}
                   </td>
                   <td>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => handleViewAddresses(user)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.4rem 0.8rem',
-                        fontSize: '0.85rem',
-                      }}>
-                      <MapPin size={16} />
-                      View Addresses
-                    </button>
+                    <div style={{display: 'flex', gap: '0.5rem'}}>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => handleViewAddresses(user)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          padding: '0.4rem 0.8rem',
+                          fontSize: '0.85rem',
+                        }}>
+                        <MapPin size={16} />
+                        View Addresses
+                      </button>
+                      <button
+                        className="btn-danger"
+                        onClick={() => handleDeleteUser(user.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          padding: '0.4rem 0.8rem',
+                          fontSize: '0.85rem',
+                        }}>
+                        <Trash2 size={16} />
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
