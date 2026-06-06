@@ -1,8 +1,8 @@
 import {useState} from 'react';
 import {db} from '../firebase';
-import {collection, deleteDoc, doc} from 'firebase/firestore';
+import {collection, deleteDoc, doc, updateDoc} from 'firebase/firestore';
 import {useCollection} from 'react-firebase-hooks/firestore';
-import {Users as UsersIcon, MapPin, X, User as UserIcon, Trash2} from 'lucide-react';
+import {Users as UsersIcon, MapPin, X, User as UserIcon, Trash2, Edit2} from 'lucide-react';
 
 interface UserAddress {
   id: string;
@@ -25,6 +25,7 @@ interface UserData {
 const Users = () => {
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
 
   // Fetch Users
   const usersRef = collection(db, 'users');
@@ -45,6 +46,7 @@ const Users = () => {
   const handleViewAddresses = (user: UserData) => {
     setSelectedUser(user);
     setIsAddressModalOpen(true);
+    setEditingAddress(null);
   };
 
   const formatDate = (timestamp: any) => {
@@ -63,6 +65,27 @@ const Users = () => {
         console.error('Error deleting user:', err);
         alert('Failed to delete user.');
       }
+    }
+  };
+
+  const handleUpdateAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser || !editingAddress) return;
+
+    try {
+      const addressDocRef = doc(db, 'users', selectedUser.id, 'addresses', editingAddress.id);
+      await updateDoc(addressDocRef, {
+        name: editingAddress.name,
+        street: editingAddress.street,
+        city: editingAddress.city,
+        state: editingAddress.state,
+        postalCode: editingAddress.postalCode,
+        country: editingAddress.country,
+      });
+      setEditingAddress(null);
+    } catch (err) {
+      console.error('Error updating address:', err);
+      alert('Failed to update address.');
     }
   };
 
@@ -234,25 +257,109 @@ const Users = () => {
                         border: '1px solid var(--border)',
                         backgroundColor: '#f9fafb',
                       }}>
-                      <div
-                        style={{
-                          fontWeight: 'bold',
-                          color: 'var(--primary)',
-                          marginBottom: '0.25rem',
-                        }}>
-                        {addr.name}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: '0.9rem',
-                          color: 'var(--text-secondary)',
-                          lineHeight: '1.4',
-                        }}>
-                        {addr.street}
-                        <br />
-                        {addr.postalCode} {addr.city}, {addr.state},{' '}
-                        {addr.country}
-                      </div>
+                      {editingAddress?.id === addr.id ? (
+                        <form onSubmit={handleUpdateAddress} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                           <input
+                              className="form-input"
+                              value={editingAddress.name}
+                              onChange={e => setEditingAddress({...editingAddress, name: e.target.value})}
+                              placeholder="Name (e.g. Home, Work)"
+                              required
+                            />
+                            <input
+                              className="form-input"
+                              value={editingAddress.street}
+                              onChange={e => setEditingAddress({...editingAddress, street: e.target.value})}
+                              placeholder="Street Address"
+                              required
+                            />
+                             <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <input
+                                className="form-input"
+                                style={{ flex: 1 }}
+                                value={editingAddress.city}
+                                onChange={e => setEditingAddress({...editingAddress, city: e.target.value})}
+                                placeholder="City"
+                                required
+                              />
+                               <input
+                                className="form-input"
+                                style={{ flex: 1 }}
+                                value={editingAddress.state}
+                                onChange={e => setEditingAddress({...editingAddress, state: e.target.value})}
+                                placeholder="State"
+                                required
+                              />
+                            </div>
+                             <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <input
+                                className="form-input"
+                                style={{ flex: 1 }}
+                                value={editingAddress.postalCode}
+                                onChange={e => setEditingAddress({...editingAddress, postalCode: e.target.value})}
+                                placeholder="Postal Code"
+                                required
+                              />
+                               <input
+                                className="form-input"
+                                style={{ flex: 1 }}
+                                value={editingAddress.country}
+                                onChange={e => setEditingAddress({...editingAddress, country: e.target.value})}
+                                placeholder="Country"
+                                required
+                              />
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                              <button type="submit" className="btn-primary" style={{ padding: '0.4rem 1rem' }}>
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => setEditingAddress(null)}
+                                style={{ padding: '0.4rem 1rem' }}>
+                                Cancel
+                              </button>
+                            </div>
+                        </form>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <div
+                              style={{
+                                fontWeight: 'bold',
+                                color: 'var(--primary)',
+                                marginBottom: '0.25rem',
+                              }}>
+                              {addr.name}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '0.9rem',
+                                color: 'var(--text-secondary)',
+                                lineHeight: '1.4',
+                              }}>
+                              {addr.street}
+                              <br />
+                              {addr.postalCode} {addr.city}, {addr.state},{' '}
+                              {addr.country}
+                            </div>
+                          </div>
+                          <button
+                            className="btn-secondary"
+                            onClick={() => setEditingAddress(addr)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              padding: '0.3rem 0.6rem',
+                              fontSize: '0.8rem',
+                            }}>
+                            <Edit2 size={14} />
+                            Edit
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
