@@ -33,6 +33,7 @@ interface Product {
   description?: string;
   image?: string;
   globalOptions?: string[]; // IDs of global option groups
+  disabled?: boolean;
 }
 
 const Products = () => {
@@ -89,7 +90,10 @@ const Products = () => {
   const handleOpenModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setFormData(product);
+      setFormData({
+        ...product,
+        disabled: product.disabled || false,
+      });
     } else {
       setEditingProduct(null);
       setFormData({
@@ -101,6 +105,7 @@ const Products = () => {
         order: (products?.length || 0) + 1,
         description: '',
         globalOptions: [],
+        disabled: false,
       });
     }
     setIsModalOpen(true);
@@ -128,6 +133,17 @@ const Products = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check for duplicate order
+    const isDuplicateOrder = products?.some(
+      prod => prod.order === formData.order && prod.id !== editingProduct?.id && prod.categoryId === formData.categoryId
+    );
+
+    if (isDuplicateOrder) {
+      alert(`Display order ${formData.order} is already in use by another product in this category. Please choose a different order.`);
+      return;
+    }
+
     try {
       if (editingProduct?.id) {
         const docRef = doc(db, 'products', editingProduct.id);
@@ -199,12 +215,13 @@ const Products = () => {
               <th>Category</th>
               <th>Price</th>
               <th>Tag</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {products?.map(prod => (
-              <tr key={prod.id}>
+              <tr key={prod.id} style={{ opacity: prod.disabled ? 0.6 : 1 }}>
                 <td style={{width: '80px', fontWeight: 'bold'}}>
                   {prod.order}
                 </td>
@@ -268,6 +285,13 @@ const Products = () => {
                       }}>
                       {prod.tag}
                     </span>
+                  )}
+                </td>
+                <td>
+                  {prod.disabled ? (
+                    <span className="badge badge-error" style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', backgroundColor: '#fee2e2', color: '#991b1b' }}>Disabled</span>
+                  ) : (
+                    <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#166534' }}>Active</span>
                   )}
                 </td>
                 <td>
@@ -506,6 +530,18 @@ const Products = () => {
                     setFormData({...formData, order: parseInt(e.target.value)})
                   }
                 />
+              </div>
+
+              <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem'}}>
+                <input
+                  type="checkbox"
+                  id="product-disabled"
+                  checked={formData.disabled || false}
+                  onChange={e => setFormData({...formData, disabled: e.target.checked})}
+                />
+                <label htmlFor="product-disabled" style={{ margin: 0, cursor: 'pointer' }}>
+                  Disable Product (Hide in App)
+                </label>
               </div>
 
               <div className="form-group">

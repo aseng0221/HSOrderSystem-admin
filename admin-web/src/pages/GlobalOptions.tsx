@@ -10,12 +10,15 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import {useCollection} from 'react-firebase-hooks/firestore';
-import {Plus, Edit2, Trash2, X} from 'lucide-react';
+import {Plus, Edit2, Trash2, X, Loader2, Image as ImageIcon} from 'lucide-react';
+import {storage} from '../firebase';
+import {ref, uploadBytes, getDownloadURL} from 'firebase/storage';
 
 interface OptionItem {
   id: string;
   name: string;
   price: string;
+  image?: string;
 }
 
 interface OptionGroup {
@@ -28,6 +31,7 @@ interface OptionGroup {
 const GlobalOptions = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<OptionGroup | null>(null);
+  const [uploadingOptionId, setUploadingOptionId] = useState<string | null>(null);
   const [formData, setFormData] = useState<OptionGroup>({
     name: '',
     type: 'pick_one',
@@ -70,6 +74,29 @@ const GlobalOptions = () => {
     const newOptions = [...formData.options];
     newOptions.splice(index, 1);
     setFormData({...formData, options: newOptions});
+  };
+
+  const handleOptionImageUpload = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingOptionId(id);
+    try {
+      const storageRef = ref(storage, `global_options/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setFormData(prev => ({
+        ...prev,
+        options: prev.options.map(opt =>
+          opt.id === id ? {...opt, image: url} : opt
+        ),
+      }));
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      alert('Failed to upload image.');
+    } finally {
+      setUploadingOptionId(null);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -267,6 +294,31 @@ const GlobalOptions = () => {
                             newOptions[index].price = e.target.value;
                             setFormData({...formData, options: newOptions});
                           }}
+                        />
+                      </div>
+                      <div style={{ position: 'relative', width: '38px', height: '38px', borderRadius: '4px', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa', flexShrink: 0 }}>
+                        {opt.image ? (
+                          <img src={opt.image} alt="Option override" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                        ) : uploadingOptionId === opt.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <ImageIcon size={16} color="var(--text-secondary)" />
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleOptionImageUpload(opt.id, e)}
+                          disabled={uploadingOptionId === opt.id}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            opacity: 0,
+                            cursor: 'pointer',
+                          }}
+                          title="Upload product image override"
                         />
                       </div>
                       <button

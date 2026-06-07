@@ -17,6 +17,7 @@ interface Category {
   name: string;
   icon: string;
   order: number;
+  disabled?: boolean;
 }
 
 const Categories = () => {
@@ -26,6 +27,7 @@ const Categories = () => {
     name: '',
     icon: '',
     order: 0,
+    disabled: false,
   });
 
   const categoriesRef = collection(db, 'categories');
@@ -38,16 +40,30 @@ const Categories = () => {
   const handleOpenModal = (category?: Category) => {
     if (category) {
       setEditingCategory(category);
-      setFormData(category);
+      setFormData({
+        ...category,
+        disabled: category.disabled || false,
+      });
     } else {
       setEditingCategory(null);
-      setFormData({name: '', icon: '', order: (categories?.length || 0) + 1});
+      setFormData({name: '', icon: '', order: (categories?.length || 0) + 1, disabled: false});
     }
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check for duplicate order
+    const isDuplicateOrder = categories?.some(
+      cat => cat.order === formData.order && cat.id !== editingCategory?.id
+    );
+
+    if (isDuplicateOrder) {
+      alert(`Display order ${formData.order} is already in use by another category. Please choose a different order.`);
+      return;
+    }
+
     try {
       if (editingCategory?.id) {
         const docRef = doc(db, 'categories', editingCategory.id);
@@ -87,18 +103,26 @@ const Categories = () => {
               <th>Order</th>
               <th>Icon</th>
               <th>Name</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {categories?.map(cat => (
-              <tr key={cat.id}>
+              <tr key={cat.id} style={{ opacity: cat.disabled ? 0.6 : 1 }}>
                 <td style={{width: '80px', fontWeight: 'bold'}}>{cat.order}</td>
                 <td>
                   <span style={{fontSize: '1.25rem'}}>{cat.icon}</span>
                 </td>
                 <td>
                   <span style={{fontWeight: '500'}}>{cat.name}</span>
+                </td>
+                <td>
+                  {cat.disabled ? (
+                    <span className="badge badge-error" style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', backgroundColor: '#fee2e2', color: '#991b1b' }}>Disabled</span>
+                  ) : (
+                    <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#166534' }}>Active</span>
+                  )}
                 </td>
                 <td>
                   <div className="action-btns">
@@ -171,6 +195,19 @@ const Categories = () => {
                   }
                 />
               </div>
+
+              <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem'}}>
+                <input
+                  type="checkbox"
+                  id="category-disabled"
+                  checked={formData.disabled || false}
+                  onChange={e => setFormData({...formData, disabled: e.target.checked})}
+                />
+                <label htmlFor="category-disabled" style={{ margin: 0, cursor: 'pointer' }}>
+                  Disable Category (Hide in App)
+                </label>
+              </div>
+
               <div style={{display: 'flex', gap: '1rem', marginTop: '2rem'}}>
                 <button
                   type="button"
