@@ -9,6 +9,7 @@ import {
   query,
   orderBy,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import {useCollection} from 'react-firebase-hooks/firestore';
 import {
@@ -40,6 +41,7 @@ const Products = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [formData, setFormData] = useState<Product>({
     categoryId: '',
     name: '',
@@ -160,8 +162,44 @@ const Products = () => {
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       await deleteDoc(doc(db, 'products', id));
+      setSelectedProductIds(prev => prev.filter(pid => pid !== id));
     }
   };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      if (products) {
+        setSelectedProductIds(products.map(p => p.id!));
+      }
+    } else {
+      setSelectedProductIds([]);
+    }
+  };
+
+  const handleSelectProduct = (id: string) => {
+    setSelectedProductIds(prev =>
+      prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]
+    );
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedProductIds.length === 0) return;
+    if (window.confirm(`Are you sure you want to delete ${selectedProductIds.length} selected products?`)) {
+      try {
+        const batch = writeBatch(db);
+        selectedProductIds.forEach(id => {
+          batch.delete(doc(db, 'products', id));
+        });
+        await batch.commit();
+        setSelectedProductIds([]);
+      } catch (err) {
+        console.error('Error deleting selected products:', err);
+        alert('Failed to delete selected products.');
+      }
+    }
+  };
+
+  const isAllSelected = products && products.length > 0 && selectedProductIds.length === products.length;
 
   return (
     <div>
@@ -195,10 +233,18 @@ const Products = () => {
               ))}
             </select>
           </div>
+        <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+          {selectedProductIds.length > 0 && (
+            <button className="btn-danger" onClick={handleDeleteSelected}>
+              <Trash2 size={20} />
+              Delete Selected ({selectedProductIds.length})
+            </button>
+          )}
           <button className="btn-primary" onClick={() => handleOpenModal()}>
             <Plus size={20} />
             Add Product
           </button>
+        </div>
         </div>
       </div>
 
@@ -209,6 +255,14 @@ const Products = () => {
         <table className="data-table">
           <thead>
             <tr>
+              <th style={{width: '40px'}}>
+                <input
+                  type="checkbox"
+                  checked={isAllSelected || false}
+                  onChange={handleSelectAll}
+                  style={{cursor: 'pointer'}}
+                />
+              </th>
               <th>Order</th>
               <th>Photo</th>
               <th>Name</th>
@@ -222,6 +276,14 @@ const Products = () => {
           <tbody>
             {products?.map(prod => (
               <tr key={prod.id} style={{ opacity: prod.disabled ? 0.6 : 1 }}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedProductIds.includes(prod.id!)}
+                    onChange={() => handleSelectProduct(prod.id!)}
+                    style={{cursor: 'pointer'}}
+                  />
+                </td>
                 <td style={{width: '80px', fontWeight: 'bold'}}>
                   {prod.order}
                 </td>
