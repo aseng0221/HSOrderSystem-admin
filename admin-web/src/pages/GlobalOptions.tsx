@@ -7,7 +7,6 @@ import {
   deleteDoc,
   doc,
   query,
-  orderBy,
 } from 'firebase/firestore';
 import {useCollection} from 'react-firebase-hooks/firestore';
 import {Plus, Edit2, Trash2, X} from 'lucide-react';
@@ -23,6 +22,7 @@ interface OptionGroup {
   name: string;
   type: 'pick_one' | 'multi_select' | 'boolean';
   options: OptionItem[];
+  order: number;
 }
 
 const GlobalOptions = () => {
@@ -32,14 +32,15 @@ const GlobalOptions = () => {
     name: '',
     type: 'pick_one',
     options: [],
+    order: 0,
   });
 
   const globalOptionsRef = collection(db, 'global_options');
-  const q = query(globalOptionsRef, orderBy('name', 'asc'));
+  const q = query(globalOptionsRef);
   const [snapshot, loading, error] = useCollection(q);
   const groups = snapshot?.docs.map(
     doc => ({id: doc.id, ...doc.data()} as OptionGroup),
-  );
+  )?.sort((a, b) => (a.order || 0) - (b.order || 0));
 
   const handleOpenModal = (group?: OptionGroup) => {
     if (group) {
@@ -51,6 +52,7 @@ const GlobalOptions = () => {
         name: '',
         type: 'pick_one',
         options: [{id: Date.now().toString(), name: '', price: '0'}],
+        order: (groups?.length || 0) + 1,
       });
     }
     setIsModalOpen(true);
@@ -110,6 +112,7 @@ const GlobalOptions = () => {
         <table className="data-table">
           <thead>
             <tr>
+              <th>Order</th>
               <th>Group Name</th>
               <th>Type</th>
               <th>Options Count</th>
@@ -119,6 +122,9 @@ const GlobalOptions = () => {
           <tbody>
             {groups?.map(group => (
               <tr key={group.id}>
+                <td style={{ width: '80px', fontWeight: 'bold' }}>
+                  {group.order}
+                </td>
                 <td>
                   <span style={{fontWeight: '600'}}>{group.name}</span>
                 </td>
@@ -174,9 +180,21 @@ const GlobalOptions = () => {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
+                  gridTemplateColumns: '1fr 2fr 2fr',
                   gap: '1rem',
                 }}>
+                <div className="form-group">
+                  <label>Display Order</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    required
+                    value={formData.order}
+                    onChange={e =>
+                      setFormData({...formData, order: parseInt(e.target.value)})
+                    }
+                  />
+                </div>
                 <div className="form-group">
                   <label>Group Name</label>
                   <input
@@ -196,7 +214,7 @@ const GlobalOptions = () => {
                     className="form-control"
                     value={formData.type}
                     onChange={e =>
-                      setFormData({...formData, type: e.target.value as any})
+                      setFormData({...formData, type: e.target.value as 'pick_one' | 'multi_select' | 'boolean'})
                     }>
                     <option value="pick_one">Pick One (Radio)</option>
                     <option value="multi_select">
