@@ -15,6 +15,7 @@ interface OptionItem {
   id: string;
   name: string;
   price: string;
+  isDefault?: boolean;
 }
 
 interface OptionGroup {
@@ -23,6 +24,7 @@ interface OptionGroup {
   type: 'pick_one' | 'multi_select' | 'boolean';
   options: OptionItem[];
   order: number;
+  required?: boolean;
 }
 
 const GlobalOptions = () => {
@@ -33,6 +35,7 @@ const GlobalOptions = () => {
     type: 'pick_one',
     options: [],
     order: 0,
+    required: false,
   });
 
   const globalOptionsRef = collection(db, 'global_options');
@@ -51,8 +54,9 @@ const GlobalOptions = () => {
       setFormData({
         name: '',
         type: 'pick_one',
-        options: [{id: Date.now().toString(), name: '', price: '0'}],
+        options: [{id: Date.now().toString(), name: '', price: '0', isDefault: false}],
         order: (groups?.length || 0) + 1,
+        required: false,
       });
     }
     setIsModalOpen(true);
@@ -63,7 +67,7 @@ const GlobalOptions = () => {
       ...formData,
       options: [
         ...formData.options,
-        {id: Date.now().toString(), name: '', price: '0'},
+        {id: Date.now().toString(), name: '', price: '0', isDefault: false},
       ],
     });
   };
@@ -180,7 +184,7 @@ const GlobalOptions = () => {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 2fr 2fr',
+                  gridTemplateColumns: '1fr 2fr 2fr auto',
                   gap: '1rem',
                 }}>
                 <div className="form-group">
@@ -223,6 +227,17 @@ const GlobalOptions = () => {
                     <option value="boolean">Toggle (Yes/No)</option>
                   </select>
                 </div>
+                <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.required || false}
+                      onChange={e => setFormData({...formData, required: e.target.checked})}
+                      style={{ width: '16px', height: '16px' }}
+                    />
+                    Is Mandatory?
+                  </label>
+                </div>
               </div>
 
               <div style={{marginTop: '1.5rem'}}>
@@ -260,6 +275,23 @@ const GlobalOptions = () => {
                         marginBottom: '0.75rem',
                         alignItems: 'center',
                       }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px' }}>
+                        <input
+                          type={formData.type === 'pick_one' ? 'radio' : 'checkbox'}
+                          name="isDefaultGroup"
+                          checked={opt.isDefault || false}
+                          title="Set as Default Option"
+                          onChange={e => {
+                            const newOptions = [...formData.options];
+                            if (formData.type === 'pick_one' && e.target.checked) {
+                              newOptions.forEach(o => o.isDefault = false);
+                            }
+                            newOptions[index].isDefault = e.target.checked;
+                            setFormData({...formData, options: newOptions});
+                          }}
+                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                      </div>
                       <div style={{flex: 2}}>
                         <input
                           type="text"
