@@ -33,6 +33,7 @@ interface Product {
   description?: string;
   image?: string;
   globalOptions?: string[]; // IDs of global option groups
+  optionImageOverrides?: Record<string, string>;
 }
 
 const Products = () => {
@@ -48,8 +49,10 @@ const Products = () => {
     order: 0,
     description: '',
     globalOptions: [],
+    optionImageOverrides: {},
   });
   const [uploading, setUploading] = useState(false);
+  const [uploadingOptions, setUploadingOptions] = useState<Record<string, boolean>>({});
 
   const productsRef = collection(db, 'products');
   const categoriesRef = collection(db, 'categories');
@@ -101,6 +104,7 @@ const Products = () => {
         order: (products?.length || 0) + 1,
         description: '',
         globalOptions: [],
+        optionImageOverrides: {},
       });
     }
     setIsModalOpen(true);
@@ -123,6 +127,30 @@ const Products = () => {
       alert('Failed to upload image. Please try again.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleOptionImageUpload = async (optionId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingOptions(prev => ({ ...prev, [optionId]: true }));
+    try {
+      const storageRef = ref(storage, `products/options/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setFormData(prev => ({
+        ...prev,
+        optionImageOverrides: {
+          ...(prev.optionImageOverrides || {}),
+          [optionId]: url
+        }
+      }));
+    } catch (err) {
+      console.error('Error uploading option image:', err);
+      alert('Failed to upload option image. Please try again.');
+    } finally {
+      setUploadingOptions(prev => ({ ...prev, [optionId]: false }));
     }
   };
 
@@ -575,6 +603,147 @@ const Products = () => {
                   )}
                 </div>
               </div>
+
+              {(formData.globalOptions?.length ?? 0) > 0 && (
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label style={{ marginBottom: '0.75rem', display: 'block' }}>
+                    Option Image Overrides
+                  </label>
+                  <div
+                    style={{
+                      background: '#f8f9fa',
+                      padding: '1rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '1rem',
+                    }}
+                  >
+                    {allGlobalOptions
+                      ?.filter(group => formData.globalOptions?.includes(group.id))
+                      .map(group => (
+                        <div key={group.id}>
+                          <h4 style={{ fontSize: '0.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text)' }}>
+                            {group.name}
+                          </h4>
+                          <div style={{ display: 'grid', gap: '0.75rem' }}>
+                            {group.options.map((opt: {id: string, name: string}) => (
+                              <div
+                                key={opt.id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '1rem',
+                                  background: 'white',
+                                  padding: '0.75rem',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border)',
+                                }}
+                              >
+                                <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: '500' }}>
+                                  {opt.name}
+                                </span>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 2 }}>
+                                  {formData.optionImageOverrides?.[opt.id] && (
+                                    <div style={{ position: 'relative' }}>
+                                      <img
+                                        src={formData.optionImageOverrides[opt.id]}
+                                        alt="Override"
+                                        style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border)' }}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const nextOverrides = { ...formData.optionImageOverrides };
+                                          delete nextOverrides[opt.id];
+                                          setFormData({ ...formData, optionImageOverrides: nextOverrides });
+                                        }}
+                                        style={{
+                                          position: 'absolute',
+                                          top: '-6px',
+                                          right: '-6px',
+                                          background: 'white',
+                                          border: '1px solid var(--border)',
+                                          borderRadius: '50%',
+                                          width: '16px',
+                                          height: '16px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          cursor: 'pointer',
+                                          padding: 0
+                                        }}
+                                      >
+                                        <X size={10} />
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  <div style={{ position: 'relative', flex: 1 }}>
+                                    <input
+                                      type="text"
+                                      className="form-control"
+                                      placeholder="Image URL"
+                                      value={formData.optionImageOverrides?.[opt.id] || ''}
+                                      onChange={(e) => setFormData({
+                                        ...formData,
+                                        optionImageOverrides: {
+                                          ...(formData.optionImageOverrides || {}),
+                                          [opt.id]: e.target.value
+                                        }
+                                      })}
+                                      style={{ paddingRight: '2rem' }}
+                                    />
+                                    <div
+                                      style={{
+                                        position: 'absolute',
+                                        right: '0',
+                                        top: '0',
+                                        height: '100%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: '2rem',
+                                        borderLeft: '1px solid var(--border)',
+                                        background: '#f8f9fa',
+                                        borderTopRightRadius: '8px',
+                                        borderBottomRightRadius: '8px',
+                                        cursor: 'pointer',
+                                        overflow: 'hidden'
+                                      }}
+                                    >
+                                      {uploadingOptions[opt.id] ? (
+                                        <Loader2 size={14} className="animate-spin" color="var(--primary)" />
+                                      ) : (
+                                        <ImageIcon size={14} color="var(--text-secondary)" />
+                                      )}
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => handleOptionImageUpload(opt.id, e)}
+                                        disabled={uploadingOptions[opt.id]}
+                                        style={{
+                                          position: 'absolute',
+                                          opacity: 0,
+                                          width: '100%',
+                                          height: '100%',
+                                          cursor: uploadingOptions[opt.id] ? 'not-allowed' : 'pointer',
+                                        }}
+                                        title="Upload Image"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
 
               <div style={{display: 'flex', gap: '1rem', marginTop: '2rem'}}>
                 <button
