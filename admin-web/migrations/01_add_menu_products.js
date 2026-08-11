@@ -1,5 +1,5 @@
 import {initializeApp} from 'firebase/app';
-import {getFirestore, collection, addDoc, getDocs} from 'firebase/firestore';
+import {getFirestore, collection, addDoc, getDocs, updateDoc, doc} from 'firebase/firestore';
 
 // In a real application, configuration should come from environment variables.
 const firebaseConfig = {
@@ -43,11 +43,14 @@ async function addMissing() {
   }
 
   if (!othersCategoryId) {
-    const docRef = await addDoc(catsCol, { name: 'Others', order: 4, disabled: false });
+    const docRef = await addDoc(catsCol, { name: 'Others', order: 4, disabled: false, icon: 'snowflake' });
     othersCategoryId = docRef.id;
     console.log('Created Others category with ID:', othersCategoryId);
   } else {
     console.log('Others category already exists with ID:', othersCategoryId);
+    // Update the existing category to have the icon
+    await updateDoc(doc(db, 'categories', othersCategoryId), { icon: 'snowflake' });
+    console.log('Updated Others category to include icon.');
   }
 
   const productsCol = collection(db, 'products');
