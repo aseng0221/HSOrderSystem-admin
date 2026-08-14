@@ -6,12 +6,16 @@ import {
   Settings,
   MapPin,
   Users as UsersIcon,
+  ClipboardList,
+  Wallet,
 } from 'lucide-react';
 import Categories from './pages/Categories';
 import GlobalOptions from './pages/GlobalOptions';
 import Products from './pages/Products';
 import Branches from './pages/Branches';
 import Users from './pages/Users';
+import Orders from './pages/Orders';
+import Topups from './pages/Topups';
 
 const DashboardHome = () => (
   <div className="card">
@@ -58,6 +62,22 @@ function App() {
               <span>Products</span>
             </NavLink>
             <NavLink
+              to="/orders"
+              className={({isActive}) =>
+                `nav-link ${isActive ? 'active' : ''}`
+              }>
+              <ClipboardList size={20} />
+              <span>Orders</span>
+            </NavLink>
+            <NavLink
+              to="/topups"
+              className={({isActive}) =>
+                `nav-link ${isActive ? 'active' : ''}`
+              }>
+              <Wallet size={20} />
+              <span>Topups</span>
+            </NavLink>
+            <NavLink
               to="/branches"
               className={({isActive}) =>
                 `nav-link ${isActive ? 'active' : ''}`
@@ -98,6 +118,8 @@ function App() {
             <Route path="/categories" element={<Categories />} />
             <Route path="/global-options" element={<GlobalOptions />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/topups" element={<Topups />} />
             <Route path="/branches" element={<Branches />} />
             <Route path="/users" element={<Users />} />
 
