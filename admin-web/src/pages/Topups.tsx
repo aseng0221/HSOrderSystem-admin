@@ -4,6 +4,13 @@ import { collection, doc, updateDoc, increment } from 'firebase/firestore';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { Wallet, X, Check, XCircle } from 'lucide-react';
 
+interface FirestoreTimestamp {
+  seconds: number;
+  nanoseconds: number;
+  toDate(): Date;
+  toMillis(): number;
+}
+
 interface TopupData {
   id: string;
   userId: string;
@@ -13,7 +20,7 @@ interface TopupData {
   paymentMethod: string;
   receiptUrl?: string;
   status: string;
-  createdAt: any;
+  createdAt: FirestoreTimestamp | null;
 }
 
 const Topups = () => {
@@ -45,13 +52,25 @@ const Topups = () => {
       const topupRef = doc(db, 'topups', selectedTopup.id);
       const userRef = doc(db, 'users', selectedTopup.userId);
 
-      // We should really use a transaction, but simple updates might suffice for now.
-      // Let's do a batch to be safe.
-      const { writeBatch } = await import('firebase/firestore');
+      const { writeBatch, getDoc } = await import('firebase/firestore');
+      const userSnap = await getDoc(userRef);
+      const currentBalance = userSnap.exists() ? (userSnap.data().walletBalance || 0) : 0;
+
       const batch = writeBatch(db);
 
       batch.update(topupRef, { status: 'approved' });
       batch.update(userRef, { walletBalance: increment(selectedTopup.totalCredit) });
+
+      const walletTxRef = doc(collection(db, 'wallet_transactions'));
+      batch.set(walletTxRef, {
+        userId: selectedTopup.userId,
+        amount: selectedTopup.totalCredit,
+        previousBalance: currentBalance,
+        newBalance: currentBalance + selectedTopup.totalCredit,
+        description: `Wallet Top-Up - Approved (${selectedTopup.paymentMethod})`,
+        createdAt: new Date(),
+        topupId: selectedTopup.id,
+      });
 
       await batch.commit();
 
@@ -79,10 +98,13 @@ const Topups = () => {
     }
   };
 
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: FirestoreTimestamp | Date | string | number | null | undefined) => {
     if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleString();
+    if (typeof timestamp === 'object' && timestamp !== null && 'toDate' in timestamp) {
+      const ts = timestamp as FirestoreTimestamp;
+      return ts.toDate().toLocaleString();
+    }
+    return new Date(timestamp as string | number | Date).toLocaleString();
   };
 
   const getStatusStyle = (status: string) => {
