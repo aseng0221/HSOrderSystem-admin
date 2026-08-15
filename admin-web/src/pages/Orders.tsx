@@ -4,12 +4,26 @@ import { collection, doc, updateDoc } from 'firebase/firestore';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { ClipboardList, X } from 'lucide-react';
 
+interface FirestoreTimestamp {
+  seconds: number;
+  nanoseconds: number;
+  toDate(): Date;
+  toMillis(): number;
+}
+
+interface ProductInfo {
+  id?: string;
+  name: string;
+  price: number;
+  imageUrl?: string;
+}
+
 interface OrderItem {
   id: string;
-  product: any;
+  product: ProductInfo;
   quantity: number;
   unitPrice: number;
-  selectedOptions?: any;
+  selectedOptions?: Record<string, unknown> | null;
 }
 
 interface OrderData {
@@ -20,7 +34,7 @@ interface OrderData {
   paymentStatus: string;
   paymentMethod: string;
   orderMode: string;
-  createdAt: any;
+  createdAt: FirestoreTimestamp | null;
   items: OrderItem[];
   receiptUrl?: string; // Optional field if user uploads receipt for order
 }
@@ -60,21 +74,31 @@ const Orders = () => {
     }
   };
 
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: FirestoreTimestamp | Date | string | number | null | undefined) => {
     if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleString();
+    if (typeof timestamp === 'object' && timestamp !== null && 'toDate' in timestamp) {
+      const ts = timestamp as FirestoreTimestamp;
+      return ts.toDate().toLocaleString();
+    }
+    return new Date(timestamp as string | number | Date).toLocaleString();
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'green';
-      case 'cancelled': return 'red';
-      case 'in_progress':
+      case 'completed':
+      case 'ready_to_pickup':
+      case 'paid':
       case 'payment_received':
+        return 'green';
+      case 'cancelled':
+      case 'failed':
+        return 'red';
+      case 'preparing':
+      case 'in_progress':
         return 'blue';
       case 'unpaid':
       case 'pending':
+      case 'pending_verification':
         return 'orange';
       default: return 'var(--text-secondary)';
     }
@@ -176,8 +200,9 @@ const Orders = () => {
                       onChange={(e) => handleUpdateStatus('status', e.target.value)}
                       disabled={updating}>
                       <option value="pending">Pending</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="ready">Ready</option>
+                      <option value="pending_verification">Pending Verification</option>
+                      <option value="preparing">Preparing</option>
+                      <option value="ready_to_pickup">Ready to Pickup</option>
                       <option value="completed">Completed</option>
                       <option value="cancelled">Cancelled</option>
                     </select>
