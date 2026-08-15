@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { db } from '../firebase';
-import { collection, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { useCollection } from 'react-firebase-hooks/firestore';
-import { Wallet, X, Check, XCircle } from 'lucide-react';
+import { Wallet, X } from 'lucide-react';
 
 interface FirestoreTimestamp {
   seconds: number;
@@ -45,8 +45,11 @@ const Topups = () => {
     setIsModalOpen(true);
   };
 
-  const handleApprove = async () => {
+  const handleUpdateStatus = async (newStatus: string) => {
     if (!selectedTopup) return;
+    const oldStatus = selectedTopup.status;
+    if (oldStatus === newStatus) return;
+
     setProcessing(true);
     try {
       const topupRef = doc(db, 'topups', selectedTopup.id);
@@ -58,40 +61,47 @@ const Topups = () => {
 
       const batch = writeBatch(db);
 
-      batch.update(topupRef, { status: 'approved' });
-      batch.update(userRef, { walletBalance: increment(selectedTopup.totalCredit) });
+      // Determine balance change and transaction description
+      let balanceChange = 0;
+      let txDescription = '';
 
-      const walletTxRef = doc(collection(db, 'users', selectedTopup.userId, 'wallet_transactions'));
-      batch.set(walletTxRef, {
-        amount: selectedTopup.totalCredit,
-        previousBalance: currentBalance,
-        newBalance: currentBalance + selectedTopup.totalCredit,
-        description: `Wallet Top-Up - Approved (${selectedTopup.paymentMethod})`,
-        createdAt: new Date(),
-        topupId: selectedTopup.id,
-      });
+      const isOldApproved = oldStatus === 'approved';
+      const isNewApproved = newStatus === 'approved';
+
+      if (!isOldApproved && isNewApproved) {
+        // Gaining approval: add funds
+        balanceChange = selectedTopup.totalCredit;
+        txDescription = `Wallet Top-Up - Approved (${selectedTopup.paymentMethod})`;
+      } else if (isOldApproved && !isNewApproved) {
+        // Losing approval: reverse funds
+        balanceChange = -selectedTopup.totalCredit;
+        txDescription = `Wallet Top-Up - Reversed (${newStatus === 'rejected' ? 'Rejected' : 'Pending Verification'})`;
+      }
+
+      // Update Topup Status
+      batch.update(topupRef, { status: newStatus });
+
+      if (balanceChange !== 0) {
+        // Update User Balance
+        batch.update(userRef, { walletBalance: currentBalance + balanceChange });
+
+        // Log transaction record in user subcollection
+        const walletTxRef = doc(collection(db, 'users', selectedTopup.userId, 'wallet_transactions'));
+        batch.set(walletTxRef, {
+          amount: balanceChange,
+          previousBalance: currentBalance,
+          newBalance: currentBalance + balanceChange,
+          description: txDescription,
+          createdAt: new Date(),
+          topupId: selectedTopup.id,
+        });
+      }
 
       await batch.commit();
-
-      setIsModalOpen(false);
+      setSelectedTopup(prev => prev ? { ...prev, status: newStatus } : null);
     } catch (err) {
-      console.error('Error approving topup:', err);
-      alert('Failed to approve topup.');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!selectedTopup) return;
-    setProcessing(true);
-    try {
-      const topupRef = doc(db, 'topups', selectedTopup.id);
-      await updateDoc(topupRef, { status: 'rejected' });
-      setIsModalOpen(false);
-    } catch (err) {
-      console.error('Error rejecting topup:', err);
-      alert('Failed to reject topup.');
+      console.error('Error updating topup status:', err);
+      alert('Failed to update status.');
     } finally {
       setProcessing(false);
     }
@@ -147,9 +157,9 @@ const Topups = () => {
                 <tr key={topup.id}>
                   <td style={{ fontSize: '0.85rem' }}>{topup.userId.slice(0, 10)}...</td>
                   <td style={{ fontSize: '0.85rem' }}>{formatDate(topup.createdAt)}</td>
-                  <td>${topup.amount?.toFixed(2) || '0.00'}</td>
-                  <td>${topup.bonus?.toFixed(2) || '0.00'}</td>
-                  <td style={{ fontWeight: 'bold' }}>${topup.totalCredit?.toFixed(2) || '0.00'}</td>
+                  <td>RM {topup.amount?.toFixed(2) || '0.00'}</td>
+                  <td>RM {topup.bonus?.toFixed(2) || '0.00'}</td>
+                  <td style={{ fontWeight: 'bold' }}>RM {topup.totalCredit?.toFixed(2) || '0.00'}</td>
                   <td style={getStatusStyle(topup.status)}>
                     {topup.status.replace('_', ' ').toUpperCase()}
                   </td>
@@ -192,15 +202,29 @@ const Topups = () => {
                 <div><strong>User ID:</strong> {selectedTopup.userId}</div>
                 <div><strong>Date:</strong> {formatDate(selectedTopup.createdAt)}</div>
                 <div><strong>Payment Method:</strong> {selectedTopup.paymentMethod}</div>
-                <div><strong>Amount:</strong> ${selectedTopup.amount}</div>
-                <div><strong>Bonus:</strong> ${selectedTopup.bonus}</div>
-                <div><strong>Total Credit to Add:</strong> ${selectedTopup.totalCredit}</div>
-                <div>
+                <div><strong>Amount:</strong> RM {selectedTopup.amount}</div>
+                <div><strong>Bonus:</strong> RM {selectedTopup.bonus}</div>
+                <div><strong>Total Credit to Add:</strong> RM {selectedTopup.totalCredit}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
                   <strong>Status:</strong>{' '}
                   <span style={getStatusStyle(selectedTopup.status)}>
                     {selectedTopup.status.replace('_', ' ').toUpperCase()}
                   </span>
                 </div>
+              </div>
+
+              {/* Status Update Dropdown */}
+              <div className="form-group" style={{ marginTop: '1.5rem', marginBottom: '1.5rem', padding: '1rem', background: '#f9fafb', borderRadius: '8px' }}>
+                <label style={{ fontWeight: 'bold', marginBottom: '0.5rem', display: 'block' }}>Update Verification Status</label>
+                <select
+                  className="form-control"
+                  value={selectedTopup.status}
+                  onChange={(e) => handleUpdateStatus(e.target.value)}
+                  disabled={processing}>
+                  <option value="pending_verification">Pending Verification</option>
+                  <option value="approved">Approved & Add Funds</option>
+                  <option value="rejected">Rejected</option>
+                </select>
               </div>
 
               {selectedTopup.receiptUrl ? (
@@ -219,32 +243,14 @@ const Topups = () => {
               )}
             </div>
 
-            <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-              {selectedTopup.status === 'pending_verification' && (
-                <>
-                  <button
-                    className="btn-secondary"
-                    onClick={handleReject}
-                    disabled={processing}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderColor: 'red', color: 'red' }}>
-                    <XCircle size={18} /> Reject
-                  </button>
-                  <button
-                    className="btn-primary"
-                    onClick={handleApprove}
-                    disabled={processing}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'green', borderColor: 'green' }}>
-                    <Check size={18} /> Approve & Add Funds
-                  </button>
-                </>
-              )}
-              {selectedTopup.status !== 'pending_verification' && (
-                <button
-                  className="btn-secondary"
-                  onClick={() => setIsModalOpen(false)}>
-                  Close
-                </button>
-              )}
+            <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                className="btn-secondary"
+                disabled={processing}
+                onClick={() => setIsModalOpen(false)}
+                style={{ padding: '0.6rem 2rem' }}>
+                Close
+              </button>
             </div>
           </div>
         </div>
