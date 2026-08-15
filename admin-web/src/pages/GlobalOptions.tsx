@@ -1,5 +1,5 @@
-import {useState} from 'react';
-import {db} from '../firebase';
+import React, { useState } from 'react';
+import { db } from '../firebase';
 import {
   collection,
   addDoc,
@@ -9,13 +9,14 @@ import {
   query,
   orderBy,
 } from 'firebase/firestore';
-import {useCollection} from 'react-firebase-hooks/firestore';
-import {Plus, Edit2, Trash2, X} from 'lucide-react';
+import { useCollection } from 'react-firebase-hooks/firestore';
+import { Plus, Edit2, Trash2, X } from 'lucide-react';
 
 interface OptionItem {
   id: string;
   name: string;
   price: string;
+  isDefault?: boolean;
 }
 
 interface OptionGroup {
@@ -38,19 +39,25 @@ const GlobalOptions = () => {
   const q = query(globalOptionsRef, orderBy('name', 'asc'));
   const [snapshot, loading, error] = useCollection(q);
   const groups = snapshot?.docs.map(
-    doc => ({id: doc.id, ...doc.data()} as OptionGroup),
+    doc => ({ id: doc.id, ...doc.data() } as OptionGroup),
   );
 
   const handleOpenModal = (group?: OptionGroup) => {
     if (group) {
       setEditingGroup(group);
-      setFormData(group);
+      setFormData({
+        ...group,
+        options: group.options.map(opt => ({
+          ...opt,
+          isDefault: opt.isDefault || false,
+        })),
+      });
     } else {
       setEditingGroup(null);
       setFormData({
         name: '',
         type: 'pick_one',
-        options: [{id: Date.now().toString(), name: '', price: '0'}],
+        options: [{ id: Date.now().toString(), name: '', price: '0', isDefault: false }],
       });
     }
     setIsModalOpen(true);
@@ -61,7 +68,7 @@ const GlobalOptions = () => {
       ...formData,
       options: [
         ...formData.options,
-        {id: Date.now().toString(), name: '', price: '0'},
+        { id: Date.now().toString(), name: '', price: '0', isDefault: false },
       ],
     });
   };
@@ -69,7 +76,23 @@ const GlobalOptions = () => {
   const handleRemoveOption = (index: number) => {
     const newOptions = [...formData.options];
     newOptions.splice(index, 1);
-    setFormData({...formData, options: newOptions});
+    setFormData({ ...formData, options: newOptions });
+  };
+
+  const handleTypeChange = (newType: 'pick_one' | 'multi_select' | 'boolean') => {
+    let newOptions = [...formData.options];
+    if (newType === 'pick_one' || newType === 'boolean') {
+      // Ensure at most one option is default
+      let foundDefault = false;
+      newOptions = newOptions.map(opt => {
+        if (opt.isDefault && !foundDefault) {
+          foundDefault = true;
+          return opt;
+        }
+        return { ...opt, isDefault: false };
+      });
+    }
+    setFormData({ ...formData, type: newType, options: newOptions });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -77,9 +100,9 @@ const GlobalOptions = () => {
     try {
       if (editingGroup?.id) {
         const docRef = doc(db, 'global_options', editingGroup.id);
-        await updateDoc(docRef, {...formData});
+        await updateDoc(docRef, { ...formData });
       } else {
-        await addDoc(globalOptionsRef, {...formData});
+        await addDoc(globalOptionsRef, { ...formData });
       }
       setIsModalOpen(false);
     } catch (err) {
@@ -120,7 +143,7 @@ const GlobalOptions = () => {
             {groups?.map(group => (
               <tr key={group.id}>
                 <td>
-                  <span style={{fontWeight: '600'}}>{group.name}</span>
+                  <span style={{ fontWeight: '600' }}>{group.name}</span>
                 </td>
                 <td>
                   <span
@@ -160,12 +183,12 @@ const GlobalOptions = () => {
 
       {isModalOpen && (
         <div className="modal-overlay">
-          <div className="modal" style={{maxWidth: '600px'}}>
+          <div className="modal" style={{ maxWidth: '600px' }}>
             <div className="page-header">
               <h3>{editingGroup ? 'Edit Option Group' : 'New Option Group'}</h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                style={{background: 'none', border: 'none', cursor: 'pointer'}}>
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                 <X size={24} color="var(--text-secondary)" />
               </button>
             </div>
@@ -185,7 +208,7 @@ const GlobalOptions = () => {
                     required
                     value={formData.name}
                     onChange={e =>
-                      setFormData({...formData, name: e.target.value})
+                      setFormData({ ...formData, name: e.target.value })
                     }
                     placeholder="e.g. Sugar Level"
                   />
@@ -196,7 +219,7 @@ const GlobalOptions = () => {
                     className="form-control"
                     value={formData.type}
                     onChange={e =>
-                      setFormData({...formData, type: e.target.value as any})
+                      handleTypeChange(e.target.value as 'pick_one' | 'multi_select' | 'boolean')
                     }>
                     <option value="pick_one">Pick One (Radio)</option>
                     <option value="multi_select">
@@ -207,7 +230,7 @@ const GlobalOptions = () => {
                 </div>
               </div>
 
-              <div style={{marginTop: '1.5rem'}}>
+              <div style={{ marginTop: '1.5rem' }}>
                 <div
                   style={{
                     display: 'flex',
@@ -215,13 +238,13 @@ const GlobalOptions = () => {
                     alignItems: 'center',
                     marginBottom: '1rem',
                   }}>
-                  <label style={{fontWeight: '700', fontSize: '0.9rem'}}>
+                  <label style={{ fontWeight: '700', fontSize: '0.9rem' }}>
                     Individual Choices
                   </label>
                   <button
                     type="button"
                     className="btn-primary"
-                    style={{padding: '0.4rem 0.8rem', fontSize: '0.8rem'}}
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                     onClick={handleAddOption}>
                     <Plus size={14} /> Add Choice
                   </button>
@@ -233,6 +256,14 @@ const GlobalOptions = () => {
                     overflowY: 'auto',
                     paddingRight: '0.5rem',
                   }}>
+                  {formData.options.length > 0 && (
+                    <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <div style={{ width: '45px', textAlign: 'center' }}>Default</div>
+                      <div style={{ flex: 2 }}>Choice Name</div>
+                      <div style={{ flex: 1 }}>Extra Price (RM)</div>
+                      <div style={{ width: '28px' }}></div>
+                    </div>
+                  )}
                   {formData.options.map((opt, index) => (
                     <div
                       key={opt.id}
@@ -242,7 +273,37 @@ const GlobalOptions = () => {
                         marginBottom: '0.75rem',
                         alignItems: 'center',
                       }}>
-                      <div style={{flex: 2}}>
+                      <div style={{ width: '45px', display: 'flex', justifyContent: 'center' }}>
+                        {formData.type === 'pick_one' || formData.type === 'boolean' ? (
+                          <input
+                            type="radio"
+                            name="default-option"
+                            checked={!!opt.isDefault}
+                            onChange={() => {
+                              const newOptions = formData.options.map((o, idx) => ({
+                                ...o,
+                                isDefault: idx === index,
+                              }));
+                              setFormData({ ...formData, options: newOptions });
+                            }}
+                            title="Set as default option"
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                          />
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={!!opt.isDefault}
+                            onChange={(e) => {
+                              const newOptions = [...formData.options];
+                              newOptions[index].isDefault = e.target.checked;
+                              setFormData({ ...formData, options: newOptions });
+                            }}
+                            title="Set as default option"
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                          />
+                        )}
+                      </div>
+                      <div style={{ flex: 2 }}>
                         <input
                           type="text"
                           className="form-control"
@@ -251,12 +312,12 @@ const GlobalOptions = () => {
                           onChange={e => {
                             const newOptions = [...formData.options];
                             newOptions[index].name = e.target.value;
-                            setFormData({...formData, options: newOptions});
+                            setFormData({ ...formData, options: newOptions });
                           }}
                           required
                         />
                       </div>
-                      <div style={{flex: 1}}>
+                      <div style={{ flex: 1 }}>
                         <input
                           type="text"
                           className="form-control"
@@ -265,7 +326,7 @@ const GlobalOptions = () => {
                           onChange={e => {
                             const newOptions = [...formData.options];
                             newOptions[index].price = e.target.value;
-                            setFormData({...formData, options: newOptions});
+                            setFormData({ ...formData, options: newOptions });
                           }}
                         />
                       </div>
@@ -280,18 +341,18 @@ const GlobalOptions = () => {
                 </div>
               </div>
 
-              <div style={{display: 'flex', gap: '1rem', marginTop: '2rem'}}>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                 <button
                   type="button"
                   className="action-btn"
                   onClick={() => setIsModalOpen(false)}
-                  style={{flex: 1, border: '1px solid var(--border)'}}>
+                  style={{ flex: 1, border: '1px solid var(--border)' }}>
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn-primary"
-                  style={{flex: 2, justifyContent: 'center'}}>
+                  style={{ flex: 2, justifyContent: 'center' }}>
                   {editingGroup ? 'Update Group' : 'Save Group'}
                 </button>
               </div>

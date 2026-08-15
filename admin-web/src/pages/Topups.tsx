@@ -61,9 +61,8 @@ const Topups = () => {
       batch.update(topupRef, { status: 'approved' });
       batch.update(userRef, { walletBalance: increment(selectedTopup.totalCredit) });
 
-      const walletTxRef = doc(collection(db, 'wallet_transactions'));
+      const walletTxRef = doc(collection(db, 'users', selectedTopup.userId, 'wallet_transactions'));
       batch.set(walletTxRef, {
-        userId: selectedTopup.userId,
         amount: selectedTopup.totalCredit,
         previousBalance: currentBalance,
         newBalance: currentBalance + selectedTopup.totalCredit,

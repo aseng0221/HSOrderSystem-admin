@@ -151,14 +151,28 @@ const Users = () => {
   const topups = topupsSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as TopupData)) || [];
 
   // Fetch Wallet Transactions
-  const walletTxsRef = collection(db, 'wallet_transactions');
+  const walletTxsRef = selectedUserId
+    ? collection(db, 'users', selectedUserId, 'wallet_transactions')
+    : null;
   const [walletTxsSnapshot] = useCollection(walletTxsRef);
-  const walletTxs = walletTxsSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as WalletTransaction)) || [];
+  const userWalletTxs = walletTxsSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as WalletTransaction))
+    .sort((a, b) => {
+      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      return timeB - timeA;
+    }) || [];
 
   // Fetch Points Transactions
-  const pointsTxsRef = collection(db, 'points_transactions');
+  const pointsTxsRef = selectedUserId
+    ? collection(db, 'users', selectedUserId, 'point_history')
+    : null;
   const [pointsTxsSnapshot] = useCollection(pointsTxsRef);
-  const pointsTxs = pointsTxsSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as PointsTransaction)) || [];
+  const userPointsTxs = pointsTxsSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as PointsTransaction))
+    .sort((a, b) => {
+      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      return timeB - timeA;
+    }) || [];
 
   // Fetch addresses for selected user
   const addressesRef = selectedUserId
@@ -219,9 +233,8 @@ const Users = () => {
       const oldWalletBalance = selectedUser.walletBalance || 0;
       if (oldWalletBalance !== editFormData.walletBalance) {
         const walletDiff = editFormData.walletBalance - oldWalletBalance;
-        const walletTxRef = doc(collection(db, 'wallet_transactions'));
+        const walletTxRef = doc(collection(db, 'users', selectedUser.id, 'wallet_transactions'));
         batch.set(walletTxRef, {
-          userId: selectedUser.id,
           amount: walletDiff,
           previousBalance: oldWalletBalance,
           newBalance: editFormData.walletBalance,
@@ -234,9 +247,8 @@ const Users = () => {
       const oldPoints = selectedUser.points || 0;
       if (oldPoints !== editFormData.points) {
         const pointsDiff = editFormData.points - oldPoints;
-        const pointsTxRef = doc(collection(db, 'points_transactions'));
+        const pointsTxRef = doc(collection(db, 'users', selectedUser.id, 'point_history'));
         batch.set(pointsTxRef, {
-          userId: selectedUser.id,
           amount: pointsDiff,
           previousPoints: oldPoints,
           newPoints: editFormData.points,
@@ -288,26 +300,6 @@ const Users = () => {
   const userTopups = selectedUserId
     ? topups
         .filter(topup => topup.userId === selectedUserId)
-        .sort((a, b) => {
-          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-          return timeB - timeA;
-        })
-    : [];
-
-  const userWalletTxs = selectedUserId
-    ? walletTxs
-        .filter(tx => tx.userId === selectedUserId)
-        .sort((a, b) => {
-          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-          return timeB - timeA;
-        })
-    : [];
-
-  const userPointsTxs = selectedUserId
-    ? pointsTxs
-        .filter(tx => tx.userId === selectedUserId)
         .sort((a, b) => {
           const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
           const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
