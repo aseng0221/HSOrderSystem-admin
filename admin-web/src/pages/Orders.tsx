@@ -201,6 +201,7 @@ const Orders = () => {
                       disabled={updating}>
                       <option value="pending">Pending</option>
                       <option value="pending_verification">Pending Verification</option>
+                      <option value="received">Received</option>
                       <option value="preparing">Preparing</option>
                       <option value="ready_to_pickup">Ready to Pickup</option>
                       <option value="completed">Completed</option>

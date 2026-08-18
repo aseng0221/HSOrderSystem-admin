@@ -309,13 +309,21 @@ const Users = () => {
 
   const getOrderStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'green';
-      case 'cancelled': return 'red';
-      case 'in_progress':
+      case 'completed':
+      case 'ready_to_pickup':
+      case 'paid':
       case 'payment_received':
+        return 'green';
+      case 'cancelled':
+      case 'failed':
+        return 'red';
+      case 'received':
+      case 'preparing':
+      case 'in_progress':
         return 'blue';
       case 'unpaid':
       case 'pending':
+      case 'pending_verification':
         return 'orange';
       default: return 'var(--text-secondary)';
     }
