@@ -17,6 +17,7 @@ interface OptionItem {
   name: string;
   price: string;
   isDefault?: boolean;
+  printName?: string;
 }
 
 interface OptionGroup {
@@ -50,6 +51,7 @@ const GlobalOptions = () => {
         options: group.options.map(opt => ({
           ...opt,
           isDefault: opt.isDefault || false,
+          printName: opt.printName || '',
         })),
       });
     } else {
@@ -57,7 +59,7 @@ const GlobalOptions = () => {
       setFormData({
         name: '',
         type: 'pick_one',
-        options: [{ id: Date.now().toString(), name: '', price: '0', isDefault: false }],
+        options: [{ id: Date.now().toString(), name: '', price: '0', isDefault: false, printName: '' }],
       });
     }
     setIsModalOpen(true);
@@ -68,7 +70,7 @@ const GlobalOptions = () => {
       ...formData,
       options: [
         ...formData.options,
-        { id: Date.now().toString(), name: '', price: '0', isDefault: false },
+        { id: Date.now().toString(), name: '', price: '0', isDefault: false, printName: '' },
       ],
     });
   };
@@ -260,6 +262,7 @@ const GlobalOptions = () => {
                     <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                       <div style={{ width: '45px', textAlign: 'center' }}>Default</div>
                       <div style={{ flex: 2 }}>Choice Name</div>
+                      <div style={{ flex: 2 }}>Sticker Label</div>
                       <div style={{ flex: 1 }}>Extra Price (RM)</div>
                       <div style={{ width: '28px' }}></div>
                     </div>
@@ -307,7 +310,7 @@ const GlobalOptions = () => {
                         <input
                           type="text"
                           className="form-control"
-                          placeholder="Label (e.g. Less Sugar)"
+                          placeholder="Choice Name (e.g. Less Sugar)"
                           value={opt.name}
                           onChange={e => {
                             const newOptions = [...formData.options];
@@ -315,6 +318,19 @@ const GlobalOptions = () => {
                             setFormData({ ...formData, options: newOptions });
                           }}
                           required
+                        />
+                      </div>
+                      <div style={{ flex: 2 }}>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Sticker Label (e.g. 70% Sugar)"
+                          value={opt.printName}
+                          onChange={e => {
+                            const newOptions = [...formData.options];
+                            newOptions[index].printName = e.target.value;
+                            setFormData({ ...formData, options: newOptions });
+                          }}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
