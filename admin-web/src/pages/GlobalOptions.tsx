@@ -18,6 +18,7 @@ interface OptionItem {
   price: string;
   isDefault?: boolean;
   printName?: string;
+  printOnLabel?: boolean;
 }
 
 interface OptionGroup {
@@ -52,6 +53,7 @@ const GlobalOptions = () => {
           ...opt,
           isDefault: opt.isDefault || false,
           printName: opt.printName || '',
+          printOnLabel: opt.printOnLabel !== false,
         })),
       });
     } else {
@@ -59,7 +61,7 @@ const GlobalOptions = () => {
       setFormData({
         name: '',
         type: 'pick_one',
-        options: [{ id: Date.now().toString(), name: '', price: '0', isDefault: false, printName: '' }],
+        options: [{ id: Date.now().toString(), name: '', price: '0', isDefault: false, printName: '', printOnLabel: true }],
       });
     }
     setIsModalOpen(true);
@@ -70,7 +72,7 @@ const GlobalOptions = () => {
       ...formData,
       options: [
         ...formData.options,
-        { id: Date.now().toString(), name: '', price: '0', isDefault: false, printName: '' },
+        { id: Date.now().toString(), name: '', price: '0', isDefault: false, printName: '', printOnLabel: true },
       ],
     });
   };
@@ -263,6 +265,7 @@ const GlobalOptions = () => {
                       <div style={{ width: '45px', textAlign: 'center' }}>Default</div>
                       <div style={{ flex: 2 }}>Choice Name</div>
                       <div style={{ flex: 2 }}>Sticker Label</div>
+                      <div style={{ width: '100px' }}>Print?</div>
                       <div style={{ flex: 1 }}>Extra Price (RM)</div>
                       <div style={{ width: '28px' }}></div>
                     </div>
@@ -332,6 +335,20 @@ const GlobalOptions = () => {
                             setFormData({ ...formData, options: newOptions });
                           }}
                         />
+                      </div>
+                      <div style={{ width: '100px' }}>
+                        <select
+                          className="form-control"
+                          value={opt.printOnLabel !== false ? 'yes' : 'no'}
+                          onChange={e => {
+                            const newOptions = [...formData.options];
+                            newOptions[index].printOnLabel = e.target.value === 'yes';
+                            setFormData({ ...formData, options: newOptions });
+                          }}
+                          style={{ padding: '0.375rem 0.5rem' }}>
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
+                        </select>
                       </div>
                       <div style={{ flex: 1 }}>
                         <input
