@@ -130,6 +130,24 @@ const Users = () => {
     points: 0,
     walletBalance: 0,
   });
+  const getTimestampMillis = (ts: unknown): number => {
+    if (!ts) return 0;
+    if (typeof ts === 'number') return ts;
+    if (typeof ts === 'object') {
+      const obj = ts as Record<string, unknown>;
+      if (typeof obj.toMillis === 'function') {
+        return (obj.toMillis as () => number)();
+      }
+      if (typeof obj.seconds === 'number') {
+        return obj.seconds * 1000;
+      }
+      if (typeof obj.toDate === 'function') {
+        return (obj.toDate as () => Date)().getTime();
+      }
+    }
+    const parsed = new Date(ts as string | Date).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
 
   // Fetch Users
   const usersRef = collection(db, 'users');
@@ -157,8 +175,8 @@ const Users = () => {
   const [walletTxsSnapshot] = useCollection(walletTxsRef);
   const userWalletTxs = walletTxsSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as WalletTransaction))
     .sort((a, b) => {
-      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      const timeA = getTimestampMillis(a.createdAt);
+      const timeB = getTimestampMillis(b.createdAt);
       return timeB - timeA;
     }) || [];
 
@@ -169,8 +187,8 @@ const Users = () => {
   const [pointsTxsSnapshot] = useCollection(pointsTxsRef);
   const userPointsTxs = pointsTxsSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as PointsTransaction))
     .sort((a, b) => {
-      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      const timeA = getTimestampMillis(a.createdAt);
+      const timeB = getTimestampMillis(b.createdAt);
       return timeB - timeA;
     }) || [];
 
@@ -291,8 +309,8 @@ const Users = () => {
     ? orders
         .filter(order => order.userId === selectedUserId)
         .sort((a, b) => {
-          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+          const timeA = getTimestampMillis(a.createdAt);
+          const timeB = getTimestampMillis(b.createdAt);
           return timeB - timeA;
         })
     : [];
@@ -301,8 +319,8 @@ const Users = () => {
     ? topups
         .filter(topup => topup.userId === selectedUserId)
         .sort((a, b) => {
-          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+          const timeA = getTimestampMillis(a.createdAt);
+          const timeB = getTimestampMillis(b.createdAt);
           return timeB - timeA;
         })
     : [];

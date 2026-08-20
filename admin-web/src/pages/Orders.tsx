@@ -47,10 +47,29 @@ const Orders = () => {
   const ordersRef = collection(db, 'orders');
   const [snapshot, loading, error] = useCollection(ordersRef);
 
+  const getTimestampMillis = (ts: unknown): number => {
+    if (!ts) return 0;
+    if (typeof ts === 'number') return ts;
+    if (typeof ts === 'object') {
+      const obj = ts as Record<string, unknown>;
+      if (typeof obj.toMillis === 'function') {
+        return (obj.toMillis as () => number)();
+      }
+      if (typeof obj.seconds === 'number') {
+        return obj.seconds * 1000;
+      }
+      if (typeof obj.toDate === 'function') {
+        return (obj.toDate as () => Date)().getTime();
+      }
+    }
+    const parsed = new Date(ts as string | Date).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   const orders = snapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as OrderData))
     .sort((a, b) => {
-      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      const timeA = getTimestampMillis(a.createdAt);
+      const timeB = getTimestampMillis(b.createdAt);
       return timeB - timeA;
     }) || [];
 
