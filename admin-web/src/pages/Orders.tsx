@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { db } from '../firebase';
 import { collection, doc, updateDoc } from 'firebase/firestore';
 import { useCollection } from 'react-firebase-hooks/firestore';
@@ -28,6 +28,7 @@ interface OrderItem {
 
 interface OrderData {
   id: string;
+  orderNumber?: number;
   userId: string;
   totalAmount: number;
   status: string;
@@ -66,12 +67,66 @@ const Orders = () => {
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  const orders = snapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as OrderData))
-    .sort((a, b) => {
-      const timeA = getTimestampMillis(a.createdAt);
-      const timeB = getTimestampMillis(b.createdAt);
-      return timeB - timeA;
-    }) || [];
+  const [sortBy, setSortBy] = useState<'date' | 'total'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filterMode, setFilterMode] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPayment, setFilterPayment] = useState<string>('all');
+  const [searchUser, setSearchUser] = useState<string>('');
+  const [searchOrderNumber, setSearchOrderNumber] = useState<string>('');
+
+  const rawOrders = useMemo(() => {
+    return snapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as OrderData)) || [];
+  }, [snapshot]);
+
+  const uniqueModes = useMemo(() => {
+    const modes = new Set<string>();
+    rawOrders.forEach(order => {
+      if (order.orderMode) modes.add(order.orderMode);
+    });
+    return Array.from(modes);
+  }, [rawOrders]);
+
+  const filteredAndSortedOrders = useMemo(() => {
+    let list = [...rawOrders];
+    
+    // Apply filters
+    if (filterMode !== 'all') {
+      list = list.filter(order => order.orderMode === filterMode);
+    }
+    if (filterStatus !== 'all') {
+      list = list.filter(order => order.status === filterStatus);
+    }
+    if (filterPayment !== 'all') {
+      list = list.filter(order => order.paymentStatus === filterPayment);
+    }
+    if (searchUser.trim() !== "") {
+      const q = searchUser.trim().toLowerCase();
+      list = list.filter(order => order.userId?.toLowerCase().includes(q));
+    }
+    if (searchOrderNumber.trim() !== "") {
+      const q = searchOrderNumber.trim();
+      list = list.filter(order => {
+        if (!order.orderNumber) return false;
+        return order.orderNumber.toString().includes(q);
+      });
+    }
+    
+    // Apply sorting
+    list.sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'date') {
+        const timeA = getTimestampMillis(a.createdAt);
+        const timeB = getTimestampMillis(b.createdAt);
+        comparison = timeA - timeB;
+      } else if (sortBy === 'total') {
+        comparison = (a.totalAmount || 0) - (b.totalAmount || 0);
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+    
+    return list;
+  }, [rawOrders, sortBy, sortOrder, filterMode, filterStatus, filterPayment, searchUser, searchOrderNumber]);
 
   const handleViewDetails = (order: OrderData) => {
     setSelectedOrder(order);
@@ -129,7 +184,104 @@ const Orders = () => {
         <h1 className="page-title">Orders Management</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
           <ClipboardList size={20} />
-          <span>{orders.length} Orders</span>
+          <span>{filteredAndSortedOrders.length} / {snapshot?.docs.length || 0} Orders</span>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: '1.5rem', padding: '1.25rem' }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>Filters & Sorting</h3>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          
+          <div className="form-group" style={{ flex: '1 1 180px', marginBottom: 0 }}>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold' }}>Search User ID</label>
+            <input
+              type="text"
+              placeholder="User ID..."
+              value={searchUser}
+              onChange={(e) => setSearchUser(e.target.value)}
+              style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--border)', borderRadius: '4px' }}
+            />
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 120px', marginBottom: 0 }}>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold' }}>Search Order No.</label>
+            <input
+              type="text"
+              placeholder="e.g. 1000"
+              value={searchOrderNumber}
+              onChange={(e) => setSearchOrderNumber(e.target.value)}
+              style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--border)', borderRadius: '4px' }}
+            />
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 120px', marginBottom: 0 }}>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold' }}>Order Mode</label>
+            <select
+              value={filterMode}
+              onChange={(e) => setFilterMode(e.target.value)}
+              style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--border)', borderRadius: '4px' }}>
+              <option value="all">All Modes</option>
+              {uniqueModes.map(mode => (
+                <option key={mode} value={mode}>{mode.toUpperCase()}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 150px', marginBottom: 0 }}>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold' }}>Order Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--border)', borderRadius: '4px' }}>
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="pending_verification">Pending Verification</option>
+              <option value="received">Received</option>
+              <option value="preparing">Preparing</option>
+              <option value="ready_to_pickup">Ready to Pickup</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 150px', marginBottom: 0 }}>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold' }}>Payment Status</label>
+            <select
+              value={filterPayment}
+              onChange={(e) => setFilterPayment(e.target.value)}
+              style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--border)', borderRadius: '4px' }}>
+              <option value="all">All Payments</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="pending_verification">Pending Verification</option>
+              <option value="payment_received">Payment Received</option>
+              <option value="paid">Paid</option>
+              <option value="failed">Failed</option>
+              <option value="refunded">Refunded</option>
+            </select>
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 150px', marginBottom: 0 }}>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold' }}>Sort By</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'date' | 'total')}
+              style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--border)', borderRadius: '4px' }}>
+              <option value="date">Order Date</option>
+              <option value="total">Total Amount</option>
+            </select>
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 120px', marginBottom: 0 }}>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold' }}>Sort Order</label>
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+              style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--border)', borderRadius: '4px' }}>
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+          </div>
+
         </div>
       </div>
 
@@ -141,7 +293,7 @@ const Orders = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Order ID</th>
+                <th>Order ID / No.</th>
                 <th>User ID</th>
                 <th>Date</th>
                 <th>Total</th>
@@ -152,9 +304,16 @@ const Orders = () => {
               </tr>
             </thead>
             <tbody>
-              {orders.map(order => (
+              {filteredAndSortedOrders.map(order => (
                 <tr key={order.id}>
-                  <td style={{ fontSize: '0.85rem' }}>{order.id.slice(0, 8)}...</td>
+                  <td style={{ fontSize: '0.85rem' }}>
+                    {order.orderNumber !== undefined && (
+                      <div style={{ fontWeight: 'bold', color: 'var(--primary)', marginBottom: '2px' }}>
+                        #{order.orderNumber}
+                      </div>
+                    )}
+                    <span style={{ color: 'var(--text-secondary)' }}>{order.id.slice(0, 8)}...</span>
+                  </td>
                   <td style={{ fontSize: '0.85rem' }}>{order.userId.slice(0, 8)}...</td>
                   <td style={{ fontSize: '0.85rem' }}>{formatDate(order.createdAt)}</td>
                   <td style={{ fontWeight: 'bold' }}>${order.totalAmount?.toFixed(2) || '0.00'}</td>
@@ -175,7 +334,7 @@ const Orders = () => {
                   </td>
                 </tr>
               ))}
-              {orders.length === 0 && (
+              {filteredAndSortedOrders.length === 0 && (
                 <tr>
                   <td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>
                     No orders found.
@@ -191,7 +350,12 @@ const Orders = () => {
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: '800px', width: '90%' }}>
             <div className="page-header">
-              <h3 style={{ margin: 0 }}>Order Details: {selectedOrder.id}</h3>
+              <h3 style={{ margin: 0 }}>
+                Order Details: {selectedOrder.orderNumber !== undefined ? "#" + selectedOrder.orderNumber + " " : ""}
+                <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>
+                  ({selectedOrder.id})
+                </span>
+              </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
